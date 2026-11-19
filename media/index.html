@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapCode 代码截图</title>
+  <style>
+    :root {
+      --bg: var(--vscode-editor-background, #1e1e1e);
+      --fg: var(--vscode-editor-foreground, #d4d4d4);
+      --panel: var(--vscode-sideBar-background, #252526);
+      --border: var(--vscode-panel-border, #3c3c3c);
+      --btn: var(--vscode-button-background, #0e639c);
+      --btn-hover: var(--vscode-button-hoverBackground, #1177bb);
+      --input-bg: var(--vscode-input-background, #3c3c3c);
+      --input-fg: var(--vscode-input-foreground, #e0e0e0);
+      --muted: var(--vscode-descriptionForeground, #9d9d9d);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font-family: var(--vscode-font-family, -apple-system, "Segoe UI", sans-serif);
+      font-size: 13px; display: flex; flex-direction: column; height: 100vh;
+    }
+    .toolbar {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+      background: var(--panel);
+    }
+    .group { display: flex; align-items: center; gap: 6px; }
+    .group label { color: var(--muted); white-space: nowrap; }
+    select, input[type=number], input[type=text] {
+      background: var(--input-bg); color: var(--input-fg);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 6px; font-size: 12px; font-family: inherit;
+    }
+    input[type=text] { width: 110px; }
+    input[type=number] { width: 56px; }
+    input[type=checkbox] { accent-color: var(--btn); }
+    button {
+      background: var(--btn); color: #fff; border: none; border-radius: 4px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit;
+    }
+    button:hover { background: var(--btn-hover); }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--fg); }
+    button.secondary:hover { background: var(--panel); }
+    .spacer { flex: 1; }
+    .stage {
+      flex: 1; overflow: auto; padding: 24px;
+      display: flex; align-items: flex-start; justify-content: center;
+    }
+    #preview { max-width: 100%; height: auto; border-radius: 4px; }
+    .hint { color: var(--muted); font-size: 11px; }
+    .toast {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: var(--btn); color: #fff; padding: 8px 16px; border-radius: 6px;
+      opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 10;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="group">
+      <label for="theme">主题</label>
+      <select id="theme"></select>
+    </div>
+    <div class="group">
+      <label for="fontSize">字号</label>
+      <input type="number" id="fontSize" min="8" max="36" value="15">
+    </div>
+    <div class="group">
+      <label for="padding">边距</label>
+      <input type="number" id="padding" min="16" max="80" value="48">
+    </div>
+    <div class="group">
+      <label for="lang">语言</label>
+      <select id="lang">
+        <option value="javascript">JavaScript</option>
+        <option value="typescript">TypeScript</option>
+        <option value="python">Python</option>
+        <option value="java">Java</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="cpp">C/C++</option>
+        <option value="csharp">C#</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+        <option value="sql">SQL</option>
+        <option value="json">JSON</option>
+        <option value="shell">Shell</option>
+        <option value="yaml">YAML</option>
+        <option value="plaintext">纯文本</option>
+      </select>
+    </div>
+    <div class="group">
+      <input type="checkbox" id="lineNumbers" checked>
+      <label for="lineNumbers">行号</label>
+    </div>
+    <div class="group">
+      <input type="checkbox" id="titleBar" checked>
+      <label for="titleBar">标题栏</label>
+    </div>
+    <div class="group">
+      <input type="checkbox" id="shadow" checked>
+      <label for="shadow">阴影</label>
+    </div>
+    <div class="group">
+      <label for="watermark">水印</label>
+      <input type="text" id="watermark" value="SnapCode">
+    </div>
+    <div class="spacer"></div>
+    <button id="saveBtn">保存 PNG</button>
+    <button id="copyBtn" class="secondary">复制到剪贴板</button>
+  </div>
+  <div class="stage">
+    <canvas id="preview"></canvas>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="tokenizer.js"></script>
+  <script src="renderer.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var vscode = acquireVsCodeApi();
+      var state = { code: '', filename: 'snippet', language: 'javascript' };
+      var $ = function (id) { return document.getElementById(id); };
+
+      // 填充主题下拉
+      var themeSel = $('theme');
+      Object.keys(SnapRenderer.THEMES).forEach(function (key) {
+        var opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = SnapRenderer.THEMES[key].label;
+        themeSel.appendChild(opt);
+      });
+
+      function config() {
+        return {
+          code: state.code,
+          language: $('lang').value,
+          filename: state.filename,
+          theme: themeSel.value,
+          fontSize: parseInt($('fontSize').value, 10) || 15,
+          padding: parseInt($('padding').value, 10) || 48,
+          fontFamily: "Consolas, 'Courier New', monospace",
+          lineNumbers: $('lineNumbers').checked,
+          titleBar: $('titleBar').checked,
+          shadow: $('shadow').checked,
+          watermark: $('watermark').value,
+          scale: 2
+        };
+      }
+
+      var preview = $('preview');
+      var renderTimer = null;
+      function scheduleRender() {
+        clearTimeout(renderTimer);
+        renderTimer = setTimeout(render, 60);
+      }
+      function render() {
+        var full = SnapRenderer.render(config());
+        // 预览用 1x：重画一份 scale=1 的
+        var previewConfig = config(); previewConfig.scale = 1;
+        var p = SnapRenderer.render(previewConfig);
+        preview.width = p.width; preview.height = p.height;
+        preview.style.width = (p.width) + 'px';
+        preview.getContext('2d').drawImage(p, 0, 0);
+        window.__fullCanvas = full;
+      }
+
+      // 绑定控件
+      ['theme','fontSize','padding','lang','lineNumbers','titleBar','shadow','watermark']
+        .forEach(function (id) { $(id).addEventListener('input', scheduleRender); $(id).addEventListener('change', scheduleRender); });
+
+      function toast(msg) {
+        var t = $('toast'); t.textContent = msg; t.classList.add('show');
+        setTimeout(function () { t.classList.remove('show'); }, 1800);
+      }
+
+      $('saveBtn').addEventListener('click', function () {
+        var dataUrl = window.__fullCanvas.toDataURL('image/png');
+        vscode.postMessage({ type: 'save', dataUrl: dataUrl, filename: state.filename });
+      });
+      $('copyBtn').addEventListener('click', function () {
+        window.__fullCanvas.toBlob(function (blob) {
+          if (!blob || !navigator.clipboard || !window.ClipboardItem) { toast('当前环境不支持复制图片，请用保存'); return; }
+          navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            .then(function () { toast('已复制到剪贴板'); })
+            .catch(function () { toast('复制失败，请用保存'); });
+        }, 'image/png');
+      });
+
+      // 接收扩展消息
+      window.addEventListener('message', function (e) {
+        var msg = e.data;
+        if (msg.type === 'init') {
+          state.code = msg.code || '';
+          state.filename = msg.filename || 'snippet';
+          if (msg.language) {
+            var langSel = $('lang');
+            for (var i = 0; i < langSel.options.length; i++) {
+              if (langSel.options[i].value === msg.language) { langSel.selectedIndex = i; break; }
+            }
+            if (!langSel.value || langSel.value !== msg.language) {
+              // 语言不在列表里，加一项
+              var opt = document.createElement('option');
+              opt.value = msg.language; opt.textContent = msg.language; langSel.appendChild(opt); langSel.value = msg.language;
+            }
+          }
+          if (msg.config) {
+            if (msg.config.theme && SnapRenderer.THEMES[msg.config.theme]) themeSel.value = msg.config.theme;
+            if (msg.config.fontSize) $('fontSize').value = msg.config.fontSize;
+            if (typeof msg.config.lineNumbers === 'boolean') $('lineNumbers').checked = msg.config.lineNumbers;
+            if (typeof msg.config.watermark === 'string') $('watermark').value = msg.config.watermark;
+          }
+          render();
+        }
+      });
+
+      vscode.postMessage({ type: 'ready' });
+    })();
+  </script>
+</body>
+</html>

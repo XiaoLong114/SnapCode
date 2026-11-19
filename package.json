@@ -1,0 +1,96 @@
+{
+  "name": "snapcode",
+  "displayName": "SnapCode - 代码截图",
+  "description": "把代码渲染成精美的图片并保存/下载，支持语法高亮、多套主题、行号与水印。",
+  "version": "1.0.0",
+  "publisher": "workbuddy",
+  "license": "MIT",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/XiaoLong114/SnapCode.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "code screenshot",
+    "code image",
+    "carbon",
+    "截图",
+    "代码"
+  ],
+  "activationEvents": [
+    "onCommand:snapcode.snapSelection",
+    "onCommand:snapcode.snapFile"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "snapcode.snapSelection",
+        "title": "SnapCode: 截图选中代码",
+        "icon": "$(bookmark)"
+      },
+      {
+        "command": "snapcode.snapFile",
+        "title": "SnapCode: 截图当前文件"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "snapcode.snapSelection",
+          "group": "1_modification",
+          "when": "editorHasSelection"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "snapcode.snapFile",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SnapCode",
+      "properties": {
+        "snapcode.defaultTheme": {
+          "type": "string",
+          "default": "oneDark",
+          "description": "默认配色主题"
+        },
+        "snapcode.fontSize": {
+          "type": "number",
+          "default": 15,
+          "description": "默认字号（像素）"
+        },
+        "snapcode.fontFamily": {
+          "type": "string",
+          "default": "Consolas, 'Courier New', monospace",
+          "description": "等宽字体"
+        },
+        "snapcode.showLineNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "默认显示行号"
+        },
+        "snapcode.watermark": {
+          "type": "string",
+          "default": "SnapCode",
+          "description": "水印文字，留空关闭"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.2.2"
+  }
+}
