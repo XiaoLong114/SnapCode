@@ -41,6 +41,13 @@
         "title": "SnapCode: 截图当前文件"
       }
     ],
+    "keybindings": [
+      {
+        "command": "snapcode.snapSelection",
+        "key": "ctrl+alt+p",
+        "when": "editorTextFocus"
+      }
+    ],
     "menus": {
       "editor/context": [
         {
