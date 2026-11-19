@@ -2,7 +2,7 @@
   "name": "snapcode",
   "displayName": "SnapCode - 代码截图",
   "description": "把代码渲染成精美的图片并保存/下载，支持语法高亮、多套主题、行号与水印。",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "publisher": "workbuddy",
   "license": "MIT",
   "icon": "images/icon.png",
