@@ -50,7 +50,7 @@ npm install
 npx vsce package
 ```
 
-生成 `snapcode-1.0.0.vsix` 后，可在 VS Code 中通过「扩展 → … → 从 VSIX 安装」安装。
+生成 `snapcode-1.2.0.vsix` 后，可在 VS Code 中通过「扩展 → … → 从 VSIX 安装」安装。
 
 ## 项目结构
 
